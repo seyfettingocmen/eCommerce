@@ -4,7 +4,6 @@ import com.example.eticaretweb.dto.BasketDto;
 import com.example.eticaretweb.dto.BasketProductDto;
 import com.example.eticaretweb.entity.Basket;
 import com.example.eticaretweb.entity.BasketProduct;
-import com.example.eticaretweb.exception.RecordNotFoundExceptions;
 import com.example.eticaretweb.repository.BasketRepository;
 import com.example.eticaretweb.service.BasketService;
 import com.example.eticaretweb.service.ProductService;
@@ -45,13 +44,15 @@ public class BasketServiceImpl implements BasketService {
         }
     }
 
-    private Basket toEntity(BasketDto basketDto) {
-        Basket basket = new Basket();
-        basket.setBasketId(basketDto.getBasketId());
-        basket.setUser(userService.findById(basketDto.getUser().getUserId()));
+    @Override
+    public BasketDto update(String id, BasketDto basketDto) {
+        Basket basket = basketRepository.findById(Long.parseLong(id)).orElse(null);
+
         basket.setStatus(basketDto.getStatus());
         basket.setTotalPrice(basketDto.getTotalPrice());
+        basket.setUser(userService.toEntity(basketDto.getUser()));
 
+        // BasketDto'daki BasketProduct listesini BasketProductDto listesini çeviren method
         List<BasketProduct> basketProductList = new ArrayList<>();
         for (BasketProductDto basketProductDto : basketDto.getBasketProductDtoList()) {
             BasketProduct newBasketProduct = new BasketProduct();
@@ -62,10 +63,9 @@ public class BasketServiceImpl implements BasketService {
             newBasketProduct.setBasketProductId(basketProductDto.getBasketProductId());
             basketProductList.add(newBasketProduct);
         }
-
         basket.setBasketProductList(basketProductList);
-
-        return basket;
+        Basket updatedBasket = basketRepository.save(basket);
+        return toDto(updatedBasket);
     }
 
 
@@ -81,7 +81,7 @@ public class BasketServiceImpl implements BasketService {
 
     @Override
     public void deleteById(Long id) {
-
+        basketRepository.deleteById(id);
     }
 
     @Override
@@ -157,31 +157,6 @@ public class BasketServiceImpl implements BasketService {
         return price * count;
     }
 
-    @Override
-    public BasketDto update(String id, BasketDto basketDto) {
-        Basket basket = basketRepository.findById(Long.parseLong(id)).orElse(null);
-
-        basket.setStatus(basketDto.getStatus());
-        basket.setTotalPrice(basketDto.getTotalPrice());
-        basket.setUser(userService.toEntity(basketDto.getUser()));
-
-        // BasketDto'daki BasketProduct listesini BasketProductDto listesini çeviren method
-        List<BasketProduct> basketProductList = new ArrayList<>();
-        for (BasketProductDto basketProductDto : basketDto.getBasketProductDtoList()) {
-            BasketProduct newBasketProduct = new BasketProduct();
-            newBasketProduct.setBasketProductId(basketProductDto.getBasketProductId());
-            newBasketProduct.setCount(basketProductDto.getCount());
-            newBasketProduct.getProduct().setProductId(basketProductDto.getProductId());
-            newBasketProduct.setTotalAmount(basketProductDto.getTotalAmount());
-            newBasketProduct.setBasketProductId(basketProductDto.getBasketProductId());
-            basketProductList.add(newBasketProduct);
-        }
-        basket.setBasketProductList(basketProductList);
-        Basket updatedBasket = basketRepository.save(basket);
-        return toDto(updatedBasket);
-    }
-
-
     private BasketDto toDto(Basket basket) {
         List<BasketProductDto> basketProductDtoList = new ArrayList<>();
         for (BasketProduct basketProduct : basket.getBasketProductList()) {
@@ -189,7 +164,6 @@ public class BasketServiceImpl implements BasketService {
 
             basketProductDtoList.add(basketProductDto);
         }
-
         return BasketDto.builder()
                 .basketId(basket.getBasketId())
                 .status(basket.getStatus())
